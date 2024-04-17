@@ -160,6 +160,7 @@ cython_debug/
 .idea/
 
 #数据
-.csv
-.xls
-.xlsx
+*.csv
+*.xls
+*.xlsx
+*.npy
