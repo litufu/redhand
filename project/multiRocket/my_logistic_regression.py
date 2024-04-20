@@ -15,10 +15,10 @@ class LogisticRegression:
             self,
             num_features,
             classes,
-            max_epochs=10,
-            minibatch_size=256*5,
+            max_epochs=2,
+            minibatch_size=256*3,
             validation_size=2 ** 11,
-            learning_rate=1e-4,
+            learning_rate=1e-3,
             patience_lr=5,  # 50 minibatches
             patience=3,  # 100 minibatches
             device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -26,13 +26,13 @@ class LogisticRegression:
         self.num_classes = len(classes)
         self.num_outputs = self.num_classes if self.num_classes > 2 else 1
         self.classes = classes
+        self.num_features = num_features
+        self.max_epochs = max_epochs
         self.name = "LogisticRegression"
         self.args = {
-            "num_features": num_features,
             "validation_size": validation_size,
             "minibatch_size": minibatch_size,
             "lr": learning_rate,
-            "max_epochs": max_epochs,
             "patience_lr": patience_lr,
             "patience": patience,
         }
@@ -89,7 +89,7 @@ class LogisticRegression:
         stall_count = 0
         stop = False
 
-        for epoch in range(self.args["max_epochs"]):
+        for epoch in range(self.max_epochs):
             if epoch > 0 and stop:
                 break
             self.model.train()
@@ -184,5 +184,8 @@ class LogisticRegression:
         return self.model.state_dict()
 
     def load(self,filename):
-        model = torch.load(filename)
-        return model
+        state_dict = torch.load(filename)
+        model = torch.nn.Sequential(torch.nn.Linear(self.num_features, self.num_outputs)).to(self.device)
+        model.load_state_dict(state_dict)
+        self.model = model
+        return self

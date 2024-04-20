@@ -1,4 +1,5 @@
 import time
+import torch
 import pandas as pd
 import numpy as np
 from get_data import get_one_stock_data,get_stock_basic,get_list_date
@@ -20,9 +21,9 @@ def handle_all_stock(fh=1):
         num_features=49728,#必须是2*4*84的整数倍
         classes=np.array([0,1,2,3,4,5,6,7,8]),
         classifier="logistic",
-        max_epochs=2,
+        max_epochs=5,
     )
-    # clf = MultiRocket.load("model_1.pth")
+    clf = clf.load("model_1.pth")
     df_index = pd.read_csv("data/index.csv")
     df_stock_basic = get_stock_basic(END_DATE, LIST_DAYS)
     for key,ts_code in enumerate(list(df_stock_basic["ts_code"])):
@@ -70,6 +71,13 @@ def handle_one_stock(clf,fh,ts_code,df_index,start_date,end_date,iter):
     print("第{}次训练精度为{}，测试精度为：{}".format(iter,train_acc,test_acc))
     print("模型测试完成，花费时间：{}".format(time.time() - test_start))
 
-
 if __name__ == '__main__':
     handle_all_stock(10)
+    # state_dict = torch.load("model_4.pth")
+    # print(state_dict)
+    # model = torch.nn.Sequential(torch.nn.Linear(49728, 9)).to(torch.device("cpu"))
+    # model.load_state_dict(state_dict)
+    # print(model)
+    # print(type(model))
+    # print(model.state_dict())
+

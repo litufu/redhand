@@ -2,6 +2,7 @@ from tsai.all import *
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
+from MYTT.apply_mytt import indicatior
 
 
 
@@ -53,10 +54,7 @@ def handle_stock_df(df,fh):
     :return:按照交易日排序后的纯股票+指数交易数据
     '''
     df = df.sort_values(by="trade_date", ascending=True)
-    # df["ma5"] = df['close'].rolling(5).mean()
-    # df["ma10"] = df['close'].rolling(10).mean()
-    # df["ma30"] = df['close'].rolling(30).mean()
-    # df["ma60"] = df['close'].rolling(60).mean()
+    df = indicatior(df)
     df = df.drop(labels=["ts_code", "trade_date", "ts_code_sh_index", "ts_code_sz_index"], axis=1)
     df["next_n_close"] = df["close"].shift(-fh)
     df.dropna(inplace=True)

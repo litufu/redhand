@@ -511,6 +511,8 @@ class MultiRocket:
         self.classes = classes
         self.base_parameters = None
         self.diff1_parameters = None
+        self.orgin_num_features = num_features
+        self.max_epochs = max_epochs
 
         self.n_features_per_kernel = 4
         self.num_features = num_features / 2  # 1 per transformation
@@ -647,5 +649,10 @@ class MultiRocket:
         return self.classifier.state_dict()
 
     def load(self,filename):
-        model = self.classifier(filename)
-        return model
+        classifier = LogisticRegression(
+            num_features=self.orgin_num_features,
+            classes=self.classes,
+            max_epochs=self.max_epochs,
+        )
+        self.classifier = classifier.load(filename)
+        return self
