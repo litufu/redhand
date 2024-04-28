@@ -12,22 +12,25 @@ test_data = StockPytorchDataset(record_file, True, False)
 test_dataloader = DataLoader(test_data, batch_size=64, shuffle=False, num_workers=0)
 # 从sktime创建inceptiontime模型
 network = InceptionTimeClassifier(verbose=True)
-# 模型初始胡，
-model_ = network.build_model((98, 100), 9)
+# 模型初始化，
+# model_ = network.build_model((98, 100), 9)
+model_save_path = r"D:\redhand\clean\data\state_dict\inceptiontime.keras"
+# 模型参数初始化
+model_ = keras.saving.load_model(model_save_path)
 # 开始训练
 csv_logger = keras.callbacks.CSVLogger(r"D:\redhand\clean\data\log\inceptiontime_log.csv", separator=",", append=True)
-checkpoint_filepath = r"D:\redhand\project\data\state_dict\inceptiontime.keras"
+
 model_checkpoint_callback = keras.callbacks.ModelCheckpoint(
-    filepath=checkpoint_filepath,
+    filepath=model_save_path,
     monitor='val_accuracy',
     mode='max',
     save_weights_only=False,
-    save_freq=100,
-    save_best_only=True)
+    save_freq=5,
+    save_best_only=False)
 reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=20, min_lr=0.001)
 remot = keras.callbacks.RemoteMonitor(
-    root="http://121.41.21.130:9000/",
-    path="/publish/",
+    root="http://121.41.21.130:9000",
+    path="/publish/epoch/end/",
     field="data",
     headers=None,
     send_as_json=False,

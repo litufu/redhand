@@ -1,10 +1,8 @@
 import numpy as np
-from sklearn.preprocessing import OneHotEncoder
+import pandas as pd
 
-y = np.array([1,7,8])
-print(y)
-y = y.reshape(-1,1)
-print(y)
-onehot_encoder = OneHotEncoder(categories=[[0,1,2,3,4,5,6,7,8]], sparse_output=False)
-new_y = onehot_encoder.fit_transform(y)
-print(new_y)
+data = {'数学':90, '英语':70, '语文':80}
+
+data = pd.DataFrame(data,index=[0])
+print(data)
+

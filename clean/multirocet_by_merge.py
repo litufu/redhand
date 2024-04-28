@@ -9,8 +9,8 @@ from download_data import get_stock_basic,get_list_date,get_one_stock_data,handl
 from constants import END_DATE,LIST_DAYS
 
 def send_to_server(send):
-    requests.post("http://121.41.21.130:9000/",{"data": json.dumps(send)},
-    )
+    requests.post("http://121.41.21.130:9000/publish/epoch/end/",{"data": json.dumps(send)},)
+
 
 def handle_all_stock(clf,log_file,fh=1):
     '''
@@ -28,7 +28,7 @@ def handle_all_stock(clf,log_file,fh=1):
         train_acc,test_acc = handle_one_stock(clf,fh, ts_code, df_index, list_date, END_DATE,key)
         status = {"epoch":key,"ts_code":ts_code,"train_acc":train_acc,"test_acc":test_acc}
         send_to_server(json.dumps(status))
-        df = pd.DataFrame(status)
+        df = pd.DataFrame(status,index=[key])
         df.to_csv(log_file,index=False,mode="a")
         print("处理完毕第{}个，股票代码：{}".format(key, ts_code))
         print("结束时stat_dict:{}".format(clf.state_dict()))
@@ -75,7 +75,7 @@ if __name__ == '__main__':
         num_features=49728,  # 必须是2*4*84的整数倍
         classes=np.array([0, 1, 2, 3, 4, 5, 6, 7, 8]),
         classifier="logistic",
-        max_epochs=5,
+        max_epochs=75,
     )
     clf = clf.load(r"D:\redhand\clean\data\model\multirocket_1.pth")
     log_file = r"D:\redhand\clean\data\log\multirocket_log.csv"
