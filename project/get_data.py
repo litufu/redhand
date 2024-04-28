@@ -36,16 +36,23 @@ def get_list_date(ts_code,df_stock_basic):
     return list_date
 
 
-def get_one_stock_data(ts_code,df_index,start_date,end_date):
+def get_one_stock_data(ts_code,df_index,start_date,end_date,is_merge_index=True):
     '''
 
     :param ts_code: 股票代码
     :param df_index: 交易数据
-    :return:
+    :param start_date: 股票开始日期
+    :param start_date: 股票结束日期
+    :param end_date: 股票结束日期
+    :param is_merge_index：是否合并指数
+    :return:合并后的数据
     '''
     df_stock = pro.daily(ts_code=ts_code, start_date=start_date, end_date=end_date)
     df_stock["trade_date"] = df_stock["trade_date"].astype(int)
-    df_merge = df_stock.merge(df_index, how="left", suffixes=["_stock", "_index"], on="trade_date")
+    if is_merge_index:
+        df_merge = df_stock.merge(df_index, how="left", suffixes=["_stock", "_index"], on="trade_date")
+    else:
+        df_merge = df_stock.copy(deep=True)
     return df_merge
 
 

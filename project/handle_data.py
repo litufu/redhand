@@ -11,19 +11,13 @@ LIST_DAYS = 200
 # 截止日期
 END_DATE = 20231231
 
-def handle_all_stock(fh=1):
+def handle_all_stock(clf,fh=1):
     '''
     预测未来几天的模型
     :param fh: 未来几天
     :return:
     '''
-    clf = MultiRocket(
-        num_features=49728,#必须是2*4*84的整数倍
-        classes=np.array([0,1,2,3,4,5,6,7,8]),
-        classifier="logistic",
-        max_epochs=5,
-    )
-    clf = clf.load("model_1.pth")
+
     df_index = pd.read_csv("data/index.csv")
     df_stock_basic = get_stock_basic(END_DATE, LIST_DAYS)
     for key,ts_code in enumerate(list(df_stock_basic["ts_code"])):
@@ -72,7 +66,14 @@ def handle_one_stock(clf,fh,ts_code,df_index,start_date,end_date,iter):
     print("模型测试完成，花费时间：{}".format(time.time() - test_start))
 
 if __name__ == '__main__':
-    handle_all_stock(10)
+    clf = MultiRocket(
+        num_features=49728,  # 必须是2*4*84的整数倍
+        classes=np.array([0, 1, 2, 3, 4, 5, 6, 7, 8]),
+        classifier="logistic",
+        max_epochs=5,
+    )
+    clf = clf.load("model_0.pth")
+    handle_all_stock(clf,10)
     # state_dict = torch.load("model_4.pth")
     # print(state_dict)
     # model = torch.nn.Sequential(torch.nn.Linear(49728, 9)).to(torch.device("cpu"))

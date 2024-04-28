@@ -1,3 +1,7 @@
+import os
+import sys
+sys.path.append(os.getcwd())
+
 from tsai.all import *
 import numpy as np
 import pandas as pd
@@ -46,16 +50,21 @@ def categorize(a):
     return num
 
 
-def handle_stock_df(df,fh):
+def handle_stock_df(df,fh,is_merge_index=True):
     '''
-    返回纯数据版本的股票交易数据，按照交易日进行排序
+    1.按照交易日进行排序
+    2.添加股票相关技术指标
+    3.返回纯数据版本的股票交易数据，
     :param df:获取的股票和指数数据
     :param fh:未来几天的涨跌幅future_horizion
     :return:按照交易日排序后的纯股票+指数交易数据
     '''
     df = df.sort_values(by="trade_date", ascending=True)
     df = indicatior(df)
-    df = df.drop(labels=["ts_code", "trade_date", "ts_code_sh_index", "ts_code_sz_index"], axis=1)
+    if is_merge_index:
+        df = df.drop(labels=["ts_code", "trade_date", "ts_code_sh_index", "ts_code_sz_index"], axis=1)
+    else:
+        df = df.drop(labels=["ts_code", "trade_date"], axis=1)
     df["next_n_close"] = df["close"].shift(-fh)
     df.dropna(inplace=True)
     df["next_n_pct_chg"] = ((df["next_n_close"] - df["close"])/df["close"])*100

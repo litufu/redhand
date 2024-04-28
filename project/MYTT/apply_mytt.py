@@ -1,3 +1,7 @@
+import os
+import sys
+sys.path.append(os.getcwd())
+
 from MYTT import MyTT
 import pandas as pd
 

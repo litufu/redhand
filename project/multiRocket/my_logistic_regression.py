@@ -20,7 +20,7 @@ class LogisticRegression:
             validation_size=2 ** 11,
             learning_rate=1e-3,
             patience_lr=5,  # 50 minibatches
-            patience=3,  # 100 minibatches
+            patience=10,  # 100 minibatches
             device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
     ):
         self.num_classes = len(classes)
