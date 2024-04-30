@@ -1,11 +1,13 @@
 import os
 import numpy as np
 import pandas as pd
+import tushare as ts
 from tsai.all import *
 from constants import pro, LIST_DAYS, END_DATE, WINDOW_LENGTH, TOTAL_TRAIN_DATA_LENGTH, TOTAL_TEST_DATA_LENGTH, \
     X_TRAIN_PATH, Y_TRAIN_PATH, X_VALID_PATH, Y_VALID_PATH,TRAIN_DATA_LENGTH,TEST_DATA_LENGTH
 
 from MYTT.apply_mytt import indicatior
+ts.set_token('f88e93f91c79cdb865f22f40cac23a2907da36b53fa9aa150228ed27')
 
 
 def categorize(a):
@@ -46,6 +48,24 @@ def categorize(a):
         num = 8
 
     return num
+
+def get_df_index():
+    df_sh = pro.index_daily(ts_code='000001.SH')
+    df_sh["trade_date"] = df_sh["trade_date"].astype(int)
+    df_sh = df_sh.sort_values(by="trade_date", ascending=True)
+    df_sh["ma5"] = df_sh['close'].rolling(5).mean()
+    df_sh["ma10"] = df_sh['close'].rolling(10).mean()
+    df_sh["ma30"] = df_sh['close'].rolling(30).mean()
+    df_sh["ma60"] = df_sh['close'].rolling(60).mean()
+    df_sz = pro.index_daily(ts_code='399001.SZ')
+    df_sz["trade_date"] = df_sz["trade_date"].astype(int)
+    df_sz = df_sz.sort_values(by="trade_date", ascending=True)
+    df_sz["ma5"] = df_sz['close'].rolling(5).mean()
+    df_sz["ma10"] = df_sz['close'].rolling(10).mean()
+    df_sz["ma30"] = df_sz['close'].rolling(30).mean()
+    df_sz["ma60"] = df_sz['close'].rolling(60).mean()
+    df_index = df_sh.merge(df_sz, how="left", suffixes=["_sh_index", "_sz_index"], on="trade_date")
+    return df_index
 
 
 def get_list_date(ts_code, df_stock_basic):
@@ -89,7 +109,9 @@ def get_one_stock_data(ts_code, df_index, start_date, end_date, is_merge_index=T
     :param is_merge_index：是否合并指数
     :return:合并后的数据
     '''
-    df_stock = pro.daily(ts_code=ts_code, start_date=start_date, end_date=end_date)
+    df_stock = ts.pro_bar(ts_code=ts_code, adj='qfq', start_date=str(start_date), end_date=str(end_date))
+    df_stock.dropna(inplace=True)
+    # df_stock = pro.daily(ts_code=ts_code, start_date=start_date, end_date=end_date)
     df_stock["trade_date"] = df_stock["trade_date"].astype(int)
     if is_merge_index:
         df_merge = df_stock.merge(df_index, how="left", suffixes=["_stock", "_index"], on="trade_date")
@@ -98,7 +120,7 @@ def get_one_stock_data(ts_code, df_index, start_date, end_date, is_merge_index=T
     return df_merge
 
 
-def handle_stock_df(df, fh, is_merge_index=True):
+def handle_stock_df(df, fh, is_merge_index=True,is_contain_y=True):
     '''
     1.按照交易日进行排序
     2.添加股票相关技术指标
@@ -108,27 +130,35 @@ def handle_stock_df(df, fh, is_merge_index=True):
     :param is_merge_index:是否合并指数数据
     :return:按照交易日排序后的纯股票+指数交易数据
     '''
-    # 股票按照交易日升序排列
-    df = df.sort_values(by="trade_date", ascending=True)
+    # 股票按照交易日降序排列
+    df = df.sort_values(by="trade_date", ascending=True,ignore_index=True)
     # 添加股票技术指标
     df = indicatior(df)
+    # 股票按照交易日升序排列
+    # df = df.sort_values(by="trade_date", ascending=False)
     # 删除无关的信息
     if is_merge_index:
         df = df.drop(labels=["ts_code", "trade_date", "ts_code_sh_index", "ts_code_sz_index"], axis=1)
     else:
         df = df.drop(labels=["ts_code", "trade_date"], axis=1)
     # 计算未来几天的股票变动
-    df["next_n_close"] = df["close"].shift(-fh)
-    df.dropna(inplace=True)
-    df["next_n_pct_chg"] = ((df["next_n_close"] - df["close"]) / df["close"]) * 100
-    # 将涨幅分类为0到8，进行9分类
-    df_data = df.copy()
-    df["target"] = df["next_n_pct_chg"].apply(categorize)
-    # 进行数据归一化
-    df_data = (df_data - df_data.mean()) / df_data.std()
-    df_data["target"] = df["target"]
+    if is_contain_y:
+        df["next_n_close"] = df["close"].shift(-fh)
+        df.dropna(inplace=True)
+        df["next_n_pct_chg"] = ((df["next_n_close"] - df["close"]) / df["close"]) * 100
+        # 将涨幅分类为0到8，进行9分类
+        df_data = df.copy()
+        df["target"] = df["next_n_pct_chg"].apply(categorize)
+        # 进行数据归一化
+        df_data = (df_data - df_data.mean()) / df_data.std()
+        df_data["target"] = df["target"]
+        df_data = df_data.drop(labels=["next_n_close", "next_n_pct_chg"], axis=1)
 
-    return df_data
+        return df_data
+    else:
+        df.dropna(inplace=True)
+        df = (df - df.mean()) / df.std()
+        return df
 
 
 def transform_data(df, window_length, get_x, get_y, horizon=1, stride=1, start=0, seq_first=True):
@@ -217,7 +247,8 @@ def download_all_data(fh, dir, record_filename, is_merge_index=True):
     :param is_merge_index: 是否需要合并指数
     :return:
     '''
-    df_index = pd.read_csv(r"D:\redhand\clean\data\index.csv")
+    # df_index = pd.read_csv(r"D:\redhand\clean\data\index.csv")
+    df_index = get_df_index()
     df_stock_basic = get_stock_basic(END_DATE, LIST_DAYS)
     x_train_paths = []
     y_train_paths = []
@@ -229,13 +260,14 @@ def download_all_data(fh, dir, record_filename, is_merge_index=True):
     total_test_data_lengths = []
     total_train_data_length = 0
     total_test_data_length = 0
-    start = False
+    start = True
     for key, ts_code in enumerate(list(df_stock_basic["ts_code"])):
-        if ts_code == "600221.SH":
-            start = True
-        else:
-            print("pass:{}".format(ts_code))
-
+        # if key>3:
+        #     break
+        # if ts_code == "600221.SH":
+        #     start = True
+        # else:
+        #     print("pass:{}".format(ts_code))
         if start:
             print("start_{}".format(ts_code))
             x_train, y_train, x_valid, y_valid = prepare_data(fh, ts_code, df_index, df_stock_basic, WINDOW_LENGTH,
@@ -254,14 +286,14 @@ def download_all_data(fh, dir, record_filename, is_merge_index=True):
             np.save(y_train_path, y_train)
             np.save(x_valid_path, x_valid)
             np.save(y_valid_path, y_valid)
-            x_train_paths.append(x_train_path)
-            y_train_paths.append(y_train_path)
-            x_valid_paths.append(x_valid_path)
-            y_valid_paths.append(y_valid_path)
-            train_data_lengths.append(train_data_length)
-            test_data_lengths.append(test_data_length)
-            total_train_data_lengths.append(total_train_data_length)
-            total_test_data_lengths.append(total_test_data_length)
+            # x_train_paths.append(x_train_path)
+            # y_train_paths.append(y_train_path)
+            # x_valid_paths.append(x_valid_path)
+            # y_valid_paths.append(y_valid_path)
+            # train_data_lengths.append(train_data_length)
+            # test_data_lengths.append(test_data_length)
+            # total_train_data_lengths.append(total_train_data_length)
+            # total_test_data_lengths.append(total_test_data_length)
 
     # dic = {
     #     X_TRAIN_PATH: x_train_paths,
@@ -336,8 +368,15 @@ def generate_record_from_dir(path, record_filename):
 
 
 if __name__ == '__main__':
-    # download_all_data(15, r"D:\redhand\clean\data\stocks", r"D:\redhand\clean\data\stock_record.csv")
-
-    # res = get_files_filter_by_name(r"D:\redhand\project\data",".npy")
-
+    download_all_data(15, r"D:\redhand\clean\data\stocks", r"D:\redhand\clean\data\stock_record.csv")
+    #
+    #
     generate_record_from_dir(r"D:\redhand\clean\data\stocks",r"D:\redhand\clean\data\stock_record.csv")
+    # d1 = np.load(r"D:\redhand\clean\data\stocks\x_train_000001.SZ.npy")
+    # d2 = np.load(r"D:\redhand\clean\data\stocks\y_train_000001.SZ.npy")
+    # d3 = np.load(r"D:\redhand\clean\data\stocks\y_valid_000001.SZ.npy")
+    # d4 = np.load(r"D:\redhand\clean\data\stocks\x_valid_000001.SZ.npy")
+    # print(d1.shape)
+    # print(d2.shape)
+    # print(d3.shape)
+    # print(d4.shape)

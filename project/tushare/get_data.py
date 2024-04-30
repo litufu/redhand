@@ -7,7 +7,7 @@ pro = ts.pro_api()
 data_basic = pro.stock_basic(exchange='', list_status='L', fields='ts_code,symbol,name,area,industry,list_date')
 print(data_basic)
 data_basic.to_csv("data_basic.csv",index=False)
-966
+
 # # 1.获取股票数据
 #
 # df_stock = pro.daily(ts_code='000001.SZ', start_date='20180701', end_date='20231231')
@@ -31,10 +31,10 @@ data_basic.to_csv("data_basic.csv",index=False)
 # # 获取深证成指
 # df_sz = pro.index_daily(ts_code='399001.SZ')
 # df_sz["trade_date"] = df_sz["trade_date"].astype(int)
-# # df_sz["ma5"] = df_sz['close'].rolling(5).mean()
-# # df_sz["ma10"] = df_sz['close'].rolling(10).mean()
-# # df_sz["ma30"] = df_sz['close'].rolling(30).mean()
-# # df_sz["ma60"] = df_sz['close'].rolling(60).mean()
+# df_sz["ma5"] = df_sz['close'].rolling(5).mean()
+# df_sz["ma10"] = df_sz['close'].rolling(10).mean()
+# df_sz["ma30"] = df_sz['close'].rolling(30).mean()
+# df_sz["ma60"] = df_sz['close'].rolling(60).mean()
 # # print(df_sz)
 #
 # # 3.获取行业数据

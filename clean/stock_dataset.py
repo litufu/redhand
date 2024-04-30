@@ -27,7 +27,7 @@ class StockPytorchDataset(Dataset):
 
 
     '''
-    def __init__(self, annotations_file,one_hot=False,train=True):
+    def __init__(self, annotations_file,one_hot=False,train=True,keras_data=False):
         '''
 
         :param annotations_file:记录x_train_path,y_train_path,x_valid_path,y_valid_path,train_data_length,
@@ -38,6 +38,7 @@ class StockPytorchDataset(Dataset):
         self.df_records = pd.read_csv(annotations_file)
         self.train = train
         self.one_hot = one_hot
+        self.keras_data = keras_data
 
     def __len__(self):
         if self.train:
@@ -57,6 +58,8 @@ class StockPytorchDataset(Dataset):
         x_list = np.load(x_path)
         y_list = np.load(y_path)
         x = x_list[train_data_pos]
+        if self.keras_data:
+            x = x.transpose((1, 0))
         y = y_list[train_data_pos]
         if self.one_hot:
             y = y.reshape(-1, 1)
@@ -77,10 +80,10 @@ class StockPytorchDataset(Dataset):
 
 if __name__ == '__main__':
     from torch.utils.data import DataLoader
-    record_file = r"D:\redhand\project\data\stock_record.csv"
-    train_data = StockPytorchDataset(record_file, True,True)
+    record_file = r"D:\redhand\clean\data\stock_record.csv"
+    train_data = StockPytorchDataset(record_file, True,True,True)
     train_dataloader = DataLoader(train_data, batch_size=64, shuffle=False)
-    test_data = StockPytorchDataset(record_file, True,False)
+    test_data = StockPytorchDataset(record_file, True,False,True)
     test_dataloader = DataLoader(test_data, batch_size=64, shuffle=False)
     train_features, train_labels = next(iter(train_dataloader))
     test_features, test_labels = next(iter(test_dataloader))
