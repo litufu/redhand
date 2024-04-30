@@ -146,16 +146,19 @@ def transform_data(df, window_length, get_x, get_y, horizon=1, stride=1, start=0
 
     X, y = SlidingWindow(window_length, stride=stride, start=start, get_x=get_x, get_y=get_y, horizon=horizon,
                          seq_first=seq_first)(df)
-    splits = get_splits(y, valid_size=.2, stratify=True, random_state=23, shuffle=False)
+    if (y is None) or (len(y)<20):
+        return None,None,None,None,None
+    splits = get_splits(y, valid_size=.2, stratify=True, random_state=23, shuffle=False,show_plot=False)
     X_train = X[splits[0]]
     y_train = y[splits[0]]
     X_valid = X[splits[1]]
     y_valid = y[splits[1]]
 
-    tfms = [None, [Categorize()]]
-    dsets = TSDatasets(X, y, tfms=tfms, splits=splits)
-    batch_tfms = TSStandardize()
-    dls = get_ts_dls(X, y, splits=splits, tfms=tfms, batch_tfms=batch_tfms, bs=[64, 128])
+    # tfms = [None, [Categorize()]]
+    # dsets = TSDatasets(X, y, tfms=tfms, splits=splits)
+    # batch_tfms = TSStandardize()
+    # dls = get_ts_dls(X, y, splits=splits, tfms=tfms, batch_tfms=batch_tfms, bs=[64, 128])
+    dls = ""
     return dls, X_train, y_train, X_valid, y_valid
 
 
@@ -214,7 +217,7 @@ def download_all_data(fh, dir, record_filename, is_merge_index=True):
     :param is_merge_index: 是否需要合并指数
     :return:
     '''
-    df_index = pd.read_csv("data/index.csv")
+    df_index = pd.read_csv(r"D:\redhand\clean\data\index.csv")
     df_stock_basic = get_stock_basic(END_DATE, LIST_DAYS)
     x_train_paths = []
     y_train_paths = []
@@ -226,43 +229,52 @@ def download_all_data(fh, dir, record_filename, is_merge_index=True):
     total_test_data_lengths = []
     total_train_data_length = 0
     total_test_data_length = 0
+    start = False
     for key, ts_code in enumerate(list(df_stock_basic["ts_code"])):
-        x_train, y_train, x_valid, y_valid = prepare_data(fh, ts_code, df_index, df_stock_basic, WINDOW_LENGTH,
-                                                          is_merge_index)
-        train_data_length = len(y_train)
-        total_train_data_length = total_train_data_length + train_data_length
-        test_data_length = len(y_valid)
-        total_test_data_length = total_test_data_length + test_data_length
-        x_train_path = os.path.join(dir, 'x_train_{}.npy').format(ts_code)
-        y_train_path = os.path.join(dir, 'y_train_{}.npy').format(ts_code)
-        x_valid_path = os.path.join(dir, 'x_valid_{}.npy').format(ts_code)
-        y_valid_path = os.path.join(dir, 'y_valid_{}.npy').format(ts_code)
-        np.save(x_train_path, x_train)
-        np.save(y_train_path, y_train)
-        np.save(x_valid_path, x_valid)
-        np.save(y_valid_path, y_valid)
-        x_train_paths.append(x_train_path)
-        y_train_paths.append(y_train_path)
-        x_valid_paths.append(x_valid_path)
-        y_valid_paths.append(y_valid_path)
-        train_data_lengths.append(train_data_length)
-        test_data_lengths.append(test_data_length)
-        total_train_data_lengths.append(total_train_data_length)
-        total_test_data_lengths.append(total_test_data_length)
-        if key > 4:
-            break
-    dic = {
-        X_TRAIN_PATH: x_train_paths,
-        Y_TRAIN_PATH: y_train_paths,
-        X_VALID_PATH: x_valid_paths,
-        Y_VALID_PATH: y_valid_paths,
-        TRAIN_DATA_LENGTH: train_data_lengths,
-        TEST_DATA_LENGTH: test_data_lengths,
-        TOTAL_TRAIN_DATA_LENGTH: total_train_data_lengths,
-        TOTAL_TEST_DATA_LENGTH: total_test_data_lengths,
-    }
-    df = pd.DataFrame(dic)
-    df.to_csv(record_filename, index=False)
+        if ts_code == "600221.SH":
+            start = True
+        else:
+            print("pass:{}".format(ts_code))
+
+        if start:
+            print("start_{}".format(ts_code))
+            x_train, y_train, x_valid, y_valid = prepare_data(fh, ts_code, df_index, df_stock_basic, WINDOW_LENGTH,
+                                                              is_merge_index)
+            if x_train is None:
+                continue
+            train_data_length = len(y_train)
+            total_train_data_length = total_train_data_length + train_data_length
+            test_data_length = len(y_valid)
+            total_test_data_length = total_test_data_length + test_data_length
+            x_train_path = os.path.join(dir, 'x_train_{}.npy').format(ts_code)
+            y_train_path = os.path.join(dir, 'y_train_{}.npy').format(ts_code)
+            x_valid_path = os.path.join(dir, 'x_valid_{}.npy').format(ts_code)
+            y_valid_path = os.path.join(dir, 'y_valid_{}.npy').format(ts_code)
+            np.save(x_train_path, x_train)
+            np.save(y_train_path, y_train)
+            np.save(x_valid_path, x_valid)
+            np.save(y_valid_path, y_valid)
+            x_train_paths.append(x_train_path)
+            y_train_paths.append(y_train_path)
+            x_valid_paths.append(x_valid_path)
+            y_valid_paths.append(y_valid_path)
+            train_data_lengths.append(train_data_length)
+            test_data_lengths.append(test_data_length)
+            total_train_data_lengths.append(total_train_data_length)
+            total_test_data_lengths.append(total_test_data_length)
+
+    # dic = {
+    #     X_TRAIN_PATH: x_train_paths,
+    #     Y_TRAIN_PATH: y_train_paths,
+    #     X_VALID_PATH: x_valid_paths,
+    #     Y_VALID_PATH: y_valid_paths,
+    #     TRAIN_DATA_LENGTH: train_data_lengths,
+    #     TEST_DATA_LENGTH: test_data_lengths,
+    #     TOTAL_TRAIN_DATA_LENGTH: total_train_data_lengths,
+    #     TOTAL_TEST_DATA_LENGTH: total_test_data_lengths,
+    # }
+    # df = pd.DataFrame(dic)
+    # df.to_csv(record_filename, index=False)
 
 
 def generate_record_from_dir(path, record_filename):
@@ -273,6 +285,7 @@ def generate_record_from_dir(path, record_filename):
     :param record_filename: 生成的记录文件名，全路径
     :return:
     '''
+
     x_train_paths = []
     y_train_paths = []
     x_valid_paths = []
@@ -323,8 +336,8 @@ def generate_record_from_dir(path, record_filename):
 
 
 if __name__ == '__main__':
-    download_all_data(15, r"D:\redhand\clean\data\stocks", r"D:\redhand\clean\data\stock_record.csv")
+    # download_all_data(15, r"D:\redhand\clean\data\stocks", r"D:\redhand\clean\data\stock_record.csv")
 
     # res = get_files_filter_by_name(r"D:\redhand\project\data",".npy")
 
-    # generate_record_from_dir(r"D:\redhand\project\data",r"D:\redhand\project\data\stock_record1.csv")
+    generate_record_from_dir(r"D:\redhand\clean\data\stocks",r"D:\redhand\clean\data\stock_record.csv")

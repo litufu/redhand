@@ -5,44 +5,85 @@ import requests
 import json
 from sklearn.metrics import accuracy_score
 from multiRocket.my_multirocket_multivariate import MultiRocket
-from download_data import get_stock_basic,get_list_date,get_one_stock_data,handle_stock_df,transform_data
-from constants import END_DATE,LIST_DAYS
+from download_data import get_stock_basic, get_list_date, get_one_stock_data, handle_stock_df, transform_data
+from constants import END_DATE, LIST_DAYS, X_TRAIN_PATH, Y_TRAIN_PATH, X_VALID_PATH, Y_VALID_PATH
+
 
 def send_to_server(send):
-    requests.post("http://121.41.21.130:9000/publish/epoch/end/",{"data": json.dumps(send)},)
+    requests.post("http://121.41.21.130:9000/publish/epoch/end/", {"data": json.dumps(send)}, )
 
 
-def handle_all_stock(clf,log_file,fh=1):
-    '''
-    处理所有的股票，预测未来几天的模型
-    :param fh: 未来几天
-    :return:
-    '''
+# def handle_all_stock(clf, log_file, fh=1):
+#     '''
+#     处理所有的股票，预测未来几天的模型
+#     :param fh: 未来几天
+#     :return:
+#     '''
+#
+#     df_index = pd.read_csv("data/index.csv")
+#     df_stock_basic = get_stock_basic(END_DATE, LIST_DAYS)
+#     for key, ts_code in enumerate(list(df_stock_basic["ts_code"])):
+#         print("开始处理第{}个，股票代码：{}".format(key, ts_code))
+#         print("开始时stat_dict:{}".format(clf.state_dict()))
+#         list_date = get_list_date(ts_code, df_stock_basic)
+#         train_acc, test_acc = handle_one_stock(clf, fh, ts_code, df_index, list_date, END_DATE, key)
+#         status = {"epoch": key, "ts_code": ts_code, "train_acc": train_acc, "test_acc": test_acc}
+#         send_to_server(json.dumps(status))
+#         df = pd.DataFrame(status, index=[key])
+#         df.to_csv(log_file, index=False, mode="a")
+#         print("处理完毕第{}个，股票代码：{}".format(key, ts_code))
+#         print("结束时stat_dict:{}".format(clf.state_dict()))
 
-    df_index = pd.read_csv("data/index.csv")
-    df_stock_basic = get_stock_basic(END_DATE, LIST_DAYS)
-    for key,ts_code in enumerate(list(df_stock_basic["ts_code"])):
-        print("开始处理第{}个，股票代码：{}".format(key,ts_code))
-        print("开始时stat_dict:{}".format(clf.state_dict()))
-        list_date = get_list_date(ts_code, df_stock_basic)
-        train_acc,test_acc = handle_one_stock(clf,fh, ts_code, df_index, list_date, END_DATE,key)
-        status = {"epoch":key,"ts_code":ts_code,"train_acc":train_acc,"test_acc":test_acc}
-        send_to_server(json.dumps(status))
-        df = pd.DataFrame(status,index=[key])
-        df.to_csv(log_file,index=False,mode="a")
-        print("处理完毕第{}个，股票代码：{}".format(key, ts_code))
+
+def new_handle_all_stcok(record_file, clf, log_file):
+    df_records = pd.read_csv(record_file)
+    for index, row in df_records.iterrows():
+        if index == 0:
+            continue
+        # 第一步:准备数据
+        prepare_start = time.time()
+        print("第一步：开始准备数据")
+        x_train_path = row[X_TRAIN_PATH]
+        x_valid_path = row[X_VALID_PATH]
+        y_train_path = row[Y_TRAIN_PATH]
+        y_valid_path = row[Y_VALID_PATH]
+        x_train = np.load(x_train_path)
+        x_valid = np.load(x_valid_path)
+        y_train = np.load(y_train_path)
+        y_valid = np.load(y_valid_path)
+        print("训练数据X：{}，训练数据y:{},验证数据X:{},验证数据y:{}".format(x_train.shape, y_train.shape, x_valid.shape,
+                                                                           y_valid.shape))
+        print("准备数据完成,花费时间：{}".format(time.time() - prepare_start))
+        # 第二步:训练模型
+        train_start = time.time()
+        print("第二步：开始训练模型")
+        yhat_train = clf.fit(x_train, y_train, predict_on_train=True)
+        train_acc = accuracy_score(y_train, yhat_train)
+        print("训练数据完成，花费时间:{}".format(time.time() - train_start))
+        clf.save(r"D:\redhand\clean\data\model\multirocket.pth".format(index))
+        # 第三步：测试数据
+        print("第三步：开始测试模型")
+        test_start = time.time()
+        yhat_test = clf.predict(x_valid)
+        test_acc = accuracy_score(y_valid, yhat_test)
+        print("第{}次训练精度为{}，测试精度为：{}".format(index, train_acc, test_acc))
+        print("模型测试完成，花费时间：{}".format(time.time() - test_start))
+        status = {"epoch": index, "ts_code": x_train_path, "train_acc": train_acc, "test_acc": test_acc}
+        # send_to_server(json.dumps(status))
+        df = pd.DataFrame(status, index=[index])
+        df.to_csv(log_file, index=False, mode="a")
+        print("处理完毕第{}个，股票代码：{}".format(index, x_train_path))
         print("结束时stat_dict:{}".format(clf.state_dict()))
 
 
-def handle_one_stock(clf,fh,ts_code,df_index,start_date,end_date,key):
-
+def handle_one_stock(clf, fh, ts_code, df_index, start_date, end_date, key):
     # 第一步:准备数据
     prepare_start = time.time()
     print("第一步：开始准备数据")
     # 获取股票和指数交易日数据
-    df_stock = get_one_stock_data(ts_code,df_index,start_date,end_date)
+    df_stock = get_one_stock_data(ts_code, df_index, start_date, end_date)
     # 数据处理
-    df_data = handle_stock_df(df_stock,fh)
+    df_data = handle_stock_df(df_stock, fh)
     columns = df_data.columns.tolist()
     # 过去几期的数据
     window_length = 100
@@ -51,23 +92,24 @@ def handle_one_stock(clf,fh,ts_code,df_index,start_date,end_date,key):
     # y的值:columns的索引：使用股票的pct_chg
     get_y = "target"
     _, X_train, y_train, X_valid, y_valid = transform_data(df_data, window_length, get_x, get_y)
-    print("训练数据X：{}，训练数据y:{},验证数据X:{},验证数据y:{}".format(X_train.shape, y_train.shape, X_valid.shape, y_valid.shape))
+    print("训练数据X：{}，训练数据y:{},验证数据X:{},验证数据y:{}".format(X_train.shape, y_train.shape, X_valid.shape,
+                                                                       y_valid.shape))
     print("准备数据完成,花费时间：{}".format(time.time() - prepare_start))
     # 第二步:训练模型
     train_start = time.time()
     print("第二步：开始训练模型")
-    yhat_train = clf.fit(X_train, y_train,predict_on_train=True)
+    yhat_train = clf.fit(X_train, y_train, predict_on_train=True)
     train_acc = accuracy_score(y_train, yhat_train)
     print("训练数据完成，花费时间:{}".format(time.time() - train_start))
-    clf.save(r"D:\redhand\clean\data\model\multirocket_{}.pth".format(key))
+    clf.save(r"D:\redhand\clean\data\model\multirocket.pth")
     # 第三步：测试数据
     print("第三步：开始测试模型")
     test_start = time.time()
     yhat_test = clf.predict(X_valid)
     test_acc = accuracy_score(y_valid, yhat_test)
-    print("第{}次训练精度为{}，测试精度为：{}".format(key,train_acc,test_acc))
+    print("第{}次训练精度为{}，测试精度为：{}".format(key, train_acc, test_acc))
     print("模型测试完成，花费时间：{}".format(time.time() - test_start))
-    return train_acc,test_acc
+    return train_acc, test_acc
 
 
 if __name__ == '__main__':
@@ -77,6 +119,7 @@ if __name__ == '__main__':
         classifier="logistic",
         max_epochs=75,
     )
-    clf = clf.load(r"D:\redhand\clean\data\model\multirocket_1.pth")
+    clf = clf.load(r"D:\redhand\clean\data\model\multirocket.pth")
     log_file = r"D:\redhand\clean\data\log\multirocket_log.csv"
-    handle_all_stock(clf,log_file, 15)
+    record_file = r"D:\redhand\clean\data\stock_record.csv"
+    new_handle_all_stcok(record_file,clf, log_file)

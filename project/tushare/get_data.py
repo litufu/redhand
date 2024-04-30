@@ -7,7 +7,7 @@ pro = ts.pro_api()
 data_basic = pro.stock_basic(exchange='', list_status='L', fields='ts_code,symbol,name,area,industry,list_date')
 print(data_basic)
 data_basic.to_csv("data_basic.csv",index=False)
-#
+966
 # # 1.获取股票数据
 #
 # df_stock = pro.daily(ts_code='000001.SZ', start_date='20180701', end_date='20231231')

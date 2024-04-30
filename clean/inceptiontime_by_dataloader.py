@@ -11,7 +11,7 @@ train_dataloader = DataLoader(train_data, batch_size=64, shuffle=False, num_work
 test_data = StockPytorchDataset(record_file, True, False)
 test_dataloader = DataLoader(test_data, batch_size=64, shuffle=False, num_workers=0)
 # 从sktime创建inceptiontime模型
-network = InceptionTimeClassifier(verbose=True)
+network = InceptionTimeClassifier(verbose=True,depth=9)
 # 模型初始化，
 # model_ = network.build_model((98, 100), 9)
 model_save_path = r"D:\redhand\clean\data\state_dict\inceptiontime.keras"
@@ -19,13 +19,14 @@ model_save_path = r"D:\redhand\clean\data\state_dict\inceptiontime.keras"
 model_ = keras.saving.load_model(model_save_path)
 # 开始训练
 csv_logger = keras.callbacks.CSVLogger(r"D:\redhand\clean\data\log\inceptiontime_log.csv", separator=",", append=True)
-
+batch_print_callback = keras.callbacks.LambdaCallback(
+    on_train_batch_end=lambda batch, logs: print("batch:{};logs:{}".format(batch, logs)))
 model_checkpoint_callback = keras.callbacks.ModelCheckpoint(
     filepath=model_save_path,
     monitor='val_accuracy',
     mode='max',
     save_weights_only=False,
-    save_freq=5,
+    save_freq=50,
     save_best_only=False)
 reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=20, min_lr=0.001)
 remot = keras.callbacks.RemoteMonitor(
@@ -35,9 +36,10 @@ remot = keras.callbacks.RemoteMonitor(
     headers=None,
     send_as_json=False,
 )
-history = model_.fit(train_dataloader, epochs=75, validation_data=test_dataloader, callbacks=[csv_logger,
-                                                                                              model_checkpoint_callback,
-                                                                                              reduce_lr, remot])
+history = model_.fit(train_dataloader, epochs=100, validation_data=test_dataloader,
+                     callbacks=[csv_logger, batch_print_callback,
+                                model_checkpoint_callback,
+                                reduce_lr, remot])
 print(history.history)
 # 保存参数
 # loaded_model = keras.saving.load_model(r"D:\redhand\project\data\state_dict\inceptiontime.keras")
