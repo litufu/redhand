@@ -116,9 +116,18 @@ if __name__ == '__main__':
     # network = LSTMFCNClassifier(n_epochs=65, verbose=0)
     # network = CNNClassifier(n_epochs=50, verbose=True)
     # network = RocketClassifier(num_kernels=10000,rocket_transform="multirocket",use_multivariate="yes")
+    x_train = np.load(r"D:\redhand\clean\data\stocks\x_train_000001.SZ.npy")
+    y_train = np.load(r"D:\redhand\clean\data\stocks\y_train_000001.SZ.npy")
+    x_test = np.load(r"D:\redhand\clean\data\stocks\x_valid_000001.SZ.npy")
+    y_test = np.load(r"D:\redhand\clean\data\stocks\y_valid_000001.SZ.npy")
+
     network = InceptionTimeClassifier(n_epochs=75, verbose=False)
-    network = network.load_from_path(Path(r"D:\redhand\project\inception_time_20.zip"))
-    handle_data(network,"inception_time", 15)
+    network.fit(x_train, y_train)
+    network.score(x_test, y_test)
+    network.save("{}_{}".format(network, 1))
+
+    # network = network.load_from_path(Path(r"D:\redhand\project\inception_time_0.zip"))
+    # handle_data(network,"inception_time", 15)
 
 
 

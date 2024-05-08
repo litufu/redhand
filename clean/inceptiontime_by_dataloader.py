@@ -15,8 +15,8 @@ def old_fit():
     # 从sktime创建inceptiontime模型
     network = InceptionTimeClassifier(verbose=True,depth=9)
     # 模型初始化，
-    # model_ = network.build_model((98, 100), 9)
-    model_save_path = r"D:\redhand\clean\data\state_dict\inceptiontime.keras"
+    model_ = network.build_model((98, 100), 9)
+    model_save_path = r"D:\redhand\clean\data\state_dict\inceptiontime_100_15.keras"
     # 模型参数初始化
     model_ = keras.saving.load_model(model_save_path)
     # 开始训练
@@ -57,9 +57,9 @@ def new_fit():
     network = InceptionTimeClassifier(verbose=True,depth=9)
     # 模型初始化，
     model_ = network.build_model((100, 96), 9)
-    model_save_path = r"D:\redhand\clean\data\state_dict\inceptiontime_new.keras"
+    model_save_path = r"C:\Users\ASUS\Downloads\inceptiontime_new_1.keras"
     # 模型参数初始化
-    # model_ = keras.saving.load_model(model_save_path)
+    model_ = keras.saving.load_model(model_save_path)
     # 开始训练
     csv_logger = keras.callbacks.CSVLogger(r"D:\redhand\clean\data\log\inceptiontime_log_new.csv", separator=",", append=True)
     batch_print_callback = keras.callbacks.LambdaCallback(
@@ -71,7 +71,7 @@ def new_fit():
         save_weights_only=False,
         save_freq=50,
         save_best_only=False)
-    reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=20, min_lr=0.001)
+    reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=50, min_lr=0.0001)
     remot = keras.callbacks.RemoteMonitor(
         root="http://121.41.21.130:9000",
         path="/publish/epoch/end/",

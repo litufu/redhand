@@ -85,9 +85,22 @@ if __name__ == '__main__':
     train_dataloader = DataLoader(train_data, batch_size=64, shuffle=False)
     test_data = StockPytorchDataset(record_file, True,False,True)
     test_dataloader = DataLoader(test_data, batch_size=64, shuffle=False)
+    # for key,(x_train,y_train) in enumerate(train_dataloader):
+    #     print(key)
+    #     print("------------------------------------")
+    #     print(x_train)
+    #     print(y_train)
+    #     if key>3:
+    #         break
+    n = np.load(r"D:\redhand\clean\data\stocks\y_train_000001.SZ.npy")
+    for i in n:
+        print(i)
+        if i>64:
+            break
+    # #
     train_features, train_labels = next(iter(train_dataloader))
     test_features, test_labels = next(iter(test_dataloader))
-    #
+    # #
     print(f"Train Feature batch shape: {train_features.size()}")
     print(f"Train Labels batch shape: {train_labels.size()}")
     # print(train_labels)

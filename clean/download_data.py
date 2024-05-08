@@ -10,7 +10,7 @@ from MYTT.apply_mytt import indicatior
 ts.set_token('f88e93f91c79cdb865f22f40cac23a2907da36b53fa9aa150228ed27')
 
 
-def categorize(a):
+def categorize(a,fh=5):
     '''
     将涨跌幅分类
     区间	类别
@@ -27,24 +27,25 @@ def categorize(a):
     :param a: 浮点数，代表涨跌幅
     :return:
     '''
+    scale = fh // 5
     num = 0
-    if a < -5.0:
+    if a < -5.0 * scale:
         num = 0
-    elif -5.0 <= a < -2.0:
+    elif -5.0 * scale <= a < -2.0 * scale:
         num = 0
-    elif -2.0 <= a < -1.0:
+    elif -2.0 * scale <= a < -1.0 * scale:
         num = 2
-    elif -1.0 <= a < 0.0:
+    elif -1.0 * scale <= a < 0.0 * scale:
         num = 3
     elif abs(a) < 1e-9:
         num = 4
-    elif 0.0 < a <= 1.0:
+    elif 0.0 < a <= 1.0 * scale:
         num = 5
-    elif 1.0 < a <= 2.0:
+    elif 1.0 * scale < a <= 2.0 * scale:
         num = 6
-    elif 2.0 < a <= 5.0:
+    elif 2.0 * scale < a <= 5.0 * scale:
         num = 7
-    elif a > 5.0:
+    elif a > 5.0 * scale:
         num = 8
 
     return num
@@ -368,13 +369,19 @@ def generate_record_from_dir(path, record_filename):
 
 
 if __name__ == '__main__':
-    download_all_data(15, r"D:\redhand\clean\data\stocks", r"D:\redhand\clean\data\stock_record.csv")
+    # download_all_data(15, r"D:\redhand\clean\data\stocks", r"D:\redhand\clean\data\stock_record.csv")
     #
     #
-    generate_record_from_dir(r"D:\redhand\clean\data\stocks",r"D:\redhand\clean\data\stock_record.csv")
+    # generate_record_from_dir(r"D:\redhand\clean\data\stocks",r"D:\redhand\clean\data\stock_record.csv")
     # d1 = np.load(r"D:\redhand\clean\data\stocks\x_train_000001.SZ.npy")
     # d2 = np.load(r"D:\redhand\clean\data\stocks\y_train_000001.SZ.npy")
-    # d3 = np.load(r"D:\redhand\clean\data\stocks\y_valid_000001.SZ.npy")
+    d3 = np.load(r"D:\redhand\clean\data\stocks\y_valid_000001.SZ.npy")
+    # 使用 NumPy 的 unique 函数统计元素出现次数
+    unique_elements, counts = np.unique(d3, return_counts=True)
+    # 将结果组合成字典
+    numpy_result = dict(zip(unique_elements, counts))
+    print("本次统计数据：{}".format(numpy_result))
+
     # d4 = np.load(r"D:\redhand\clean\data\stocks\x_valid_000001.SZ.npy")
     # print(d1.shape)
     # print(d2.shape)

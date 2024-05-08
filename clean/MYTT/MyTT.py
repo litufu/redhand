@@ -263,7 +263,7 @@ def OBV(CLOSE,VOL):                                  #能量潮指标
 
 def MFI(CLOSE,HIGH,LOW,VOL,N=14):                    #MFI指标是成交量的RSI指标
     TYP = (HIGH + LOW + CLOSE)/3
-    V1=SUM(IF(TYP>REF(TYP,1),TYP*VOL,0),N)/SUM(IF(TYP<REF(TYP,1),TYP*VOL,0),N)  
+    V1=SUM(IF(TYP>REF(TYP,1),TYP*VOL,0),N)/(SUM(IF(TYP<REF(TYP,1),TYP*VOL,0),N) + 0.00001)
     return 100-(100/(1+V1))     
   
 def ASI(OPEN,CLOSE,HIGH,LOW,M1=26,M2=10):            #振动升降指标

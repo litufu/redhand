@@ -2,7 +2,7 @@ import os
 import sys
 sys.path.append(os.getcwd())
 
-from tsai.all import *
+from mytsai.all import *
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
