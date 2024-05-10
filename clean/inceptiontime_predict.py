@@ -17,6 +17,7 @@ from download_data import get_df_index, get_stock_basic, get_one_stock_data, han
 logging.basicConfig(filename=r"D:\redhand\clean\data\log\test.log", filemode="w", format="%(asctime)s %(name)s:%(levelname)s:%(message)s",
                     datefmt="%d-%m-%Y %H:%M:%S", level=logging.DEBUG)
 conn = sqlite3.connect(r"D:\redhand\clean\data\tushare_db\tushare.db")
+# 获取交易日期
 sql_query = '''SELECT * FROM trade_cal where cal_date>='{}' and cal_date<='{}' '''.format("20100101", "20241231")
 df_trade_date = pd.read_sql(sql_query, conn)
 df_trade_date["is_open"] = df_trade_date["is_open"].astype(int)
@@ -213,10 +214,11 @@ def coumpute_buy_and_sell_active(now_holds, df_to_buy, next_trade_date):
 
     # df_stock = pro.daily(trade_date=next_trade_date)
     # 要进行交易的交易日
-    trade_date = transform_date(next_trade_date, False)
+    # trade_date = transform_date(next_trade_date, False)
+    trade_date = next_trade_date
     df_stock = pd.read_sql('''SELECT * FROM  stock_all where trade_date='{}';'''.format(trade_date), con=conn)
-    df_stock["trade_date"] = df_stock["trade_date"].apply(
-        lambda x: (datetime.datetime.strptime(x, "%Y-%m-%d")).strftime('%Y%m%d'))
+    # df_stock["trade_date"] = df_stock["trade_date"].apply(
+    #     lambda x: (datetime.datetime.strptime(x, "%Y-%m-%d")).strftime('%Y%m%d'))
     # 获取要卖和要买股票的开盘价
     df_to_buy = pd.merge(df_to_buy, df_stock, on="ts_code")
     buy_stocks = df_to_buy["ts_code"].values
@@ -276,15 +278,15 @@ def transform_date(origin, contain_split=True):
 
 
 def get_one_stock_data_from_sqlite(ts_code, start_date, end_date, is_merge_index,table="stock_all"):
-    start_date = transform_date(start_date, False)
-    end_date = transform_date(end_date, False)
+    # start_date = transform_date(start_date, False)
+    # end_date = transform_date(end_date, False)
     df_stock = pd.read_sql(
         '''SELECT * FROM  {} where ts_code='{}' AND trade_date>='{}' AND trade_date<='{}';'''.format(table,ts_code,
                                                                                                             start_date,
                                                                                                             end_date),
         con=conn)  # 把数据库的入口传给它 # 简单明了的 sql 语句
-    df_stock["trade_date"] = df_stock["trade_date"].apply(
-        lambda x: (datetime.datetime.strptime(x, "%Y-%m-%d")).strftime('%Y%m%d'))
+    # df_stock["trade_date"] = df_stock["trade_date"].apply(
+    #     lambda x: (datetime.datetime.strptime(x, "%Y-%m-%d")).strftime('%Y%m%d'))
     df_stock.dropna(inplace=True)
     df_stock["trade_date"] = df_stock["trade_date"].astype(int)
     if is_merge_index:
@@ -403,7 +405,8 @@ def compute_now_holds_value(now_holds):
     :return:
     '''
     # df_stock = pro.daily(trade_date=now_holds["date"])
-    date = transform_date(now_holds["date"],False)
+    # date = transform_date(now_holds["date"],False)
+    date = now_holds["date"]
     df_stock = pd.read_sql('''SELECT * FROM  stock_all where trade_date='{}';'''.format(date), con=conn)
     df_hold = pd.DataFrame(now_holds["stocks"])
     df_hold = pd.merge(df_hold, df_stock, on="ts_code")
@@ -450,18 +453,22 @@ def run(model_save_path,trade_date, days=50, initial_amount=100000,is_real=True,
 
 if __name__ == '__main__':
     # while True:
-    #     model_save_path_1 = r"C:\Users\ASUS\Downloads\inceptiontime_new.keras"
-    #     model_save_path_2 = r"D:\redhand\clean\data\state_dict\inceptiontime_new_100_15.keras"
-    #     model_save_path_3 = r"D:\redhand\clean\data\state_dict\inceptiontime_new_20240504.keras"
+        model_save_path_1 = r"D:\redhand\clean\data\state_dict\inceptiontime_new.keras"
+        model_save_path_2 = r"D:\redhand\clean\data\state_dict\inceptiontime_new_100_15.keras"
+        model_save_path_3 = r"D:\redhand\clean\data\state_dict\inceptiontime_new_150_15.keras"
+        model_save_path_4 = r"D:\redhand\clean\data\state_dict\inceptiontime_new_200_20.keras"
+        model_save_path_5 = r"C:\Users\ASUS\Downloads\inceptiontime new 150 15.keras"
     #     model_save_path_4 = r"D:\redhand\clean\data\state_dict\inceptiontime_new_0502.keras"
     #     model_save_path_5 = r"D:\redhand\clean\data\state_dict\inceptiontime_new_0501.keras"
     #     model_save_path_sktime = r"D:\redhand\project\InceptionTimeClassifier(n_epochs=75)_1.zip"
-    #     run(model_save_path_1,"20240102",is_real=False,fh=15,step_length=100)
+        run(model_save_path_3,"20240102",is_real=False,fh=15,step_length=150)
     # print(get_date_before_days("20240102", 1))
     # 下载数据
-    get_stock_basic_to_sqlite(20240430, LIST_DAYS)
-    get_index_to_sqlite()
-    get_trade_cal()
+    # get_trade_cal()
+    # get_index_to_sqlite()
+    # get_stock_basic_to_sqlite(20240430, LIST_DAYS)
+
+
     # sold_actives = [{'method': 'sell', 'ts_code': '000025.SZ', 'num': 1200, 'price': 15.9}]
     # now_holds = {'stocks': [{'ts_code': '000002.SZ', 'num': 1900}, {'ts_code': '000001.SZ', 'num': 2100}, {'ts_code': '000016.SZ', 'num': 4900}, {'ts_code': '000012.SZ', 'num': 3500}, {'ts_code': '000025.SZ', 'num': 1200}], 'money': 2560.33109999999, 'date': '20240116'}
     # excute_actives(sold_actives,[],now_holds)

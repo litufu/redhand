@@ -57,7 +57,7 @@ def new_fit():
     network = InceptionTimeClassifier(verbose=True,depth=9)
     # 模型初始化，
     model_ = network.build_model((100, 96), 9)
-    model_save_path = r"C:\Users\ASUS\Downloads\inceptiontime_new_1.keras"
+    model_save_path = r"C:\Users\ASUS\Downloads\inceptiontime new.keras"
     # 模型参数初始化
     model_ = keras.saving.load_model(model_save_path)
     # 开始训练

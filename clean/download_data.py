@@ -32,7 +32,7 @@ def categorize(a,fh=5):
     if a < -5.0 * scale:
         num = 0
     elif -5.0 * scale <= a < -2.0 * scale:
-        num = 0
+        num = 1
     elif -2.0 * scale <= a < -1.0 * scale:
         num = 2
     elif -1.0 * scale <= a < 0.0 * scale:
