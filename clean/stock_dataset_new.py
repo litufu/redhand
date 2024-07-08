@@ -10,22 +10,69 @@ from sklearn.utils import check_random_state
 from sklearn.preprocessing import OneHotEncoder
 from MYTT.apply_mytt import indicatior
 from constants import TOTAL_TRAIN_DATA_LENGTH, TOTAL_TEST_DATA_LENGTH, X_TRAIN_PATH, Y_TRAIN_PATH, X_VALID_PATH, \
-    Y_VALID_PATH
+    CATEGORIES
+
+
+def get_stock_distribution(conn, ts_code, fh, table="stock_all"):
+    '''
+    获取数据分布
+    :param df: dataframe
+    :param col_name:
+    :return:
+    '''
+    print(ts_code)
+    df = pd.read_sql(
+        '''SELECT * FROM  {} where ts_code='{}' limit 1000;'''.format(table, ts_code),
+        con=conn)  # 把数据库的入口传给它 # 简单明了的 sql 语句
+    df.dropna(inplace=True)
+    df = df.sort_values(by="trade_date", ascending=True, ignore_index=True)
+    # 计算未来fh天的收盘价
+    df["next_n_close"] = df["close"].shift(-fh)
+    # 删除最后的fh天的信息，因为无法取得未来fh天的收盘价
+    df.dropna(inplace=True)
+    # 计算未来fh天的股票变动比例
+    df["next_n_pct_chg"] = ((df["next_n_close"] - df["close"]) / df["close"]) * 100
+    # 计算未来fh天的股票变动方向
+    df_res = df["next_n_pct_chg"].describe(percentiles=[.33, .66])
+    df_res = df_res.to_frame().T
+    df_res["symbol"] = ts_code
+    df_res["fh"] = fh
+    print(df_res)
+    df_res.to_csv(r'D:\stock\res_2.csv', mode='a', header=False, index=False)
+
+
+def get_stock_all_distribution(conn, table="stock_all"):
+    '''
+    获取所有股票的分布
+    :param conn:
+    :param table:
+    :return:
+    '''
+    ts_codes = pd.read_sql('''SELECT DISTINCT ts_code FROM {}'''.format(table), con=conn)['ts_code'].tolist()
+    for key, ts_code in enumerate(ts_codes):
+        if key % 3 != 0:
+            continue
+        if key > 1000:
+            return
+        for fh in range(1, 11):
+            get_stock_distribution(conn, ts_code, fh, table)
 
 
 def categorize(a, fh=5, freq="d"):
     '''
     将涨跌幅分类
     区间	类别
-    <-5	0
-    【-5,-2】	0
-    【-2,-1】	2
-    【-1,0】	3
-    0	4
-    【0,1】	5
-    【1,2】	6
-    【2,5】	7
-    >5	8
+    1	 -0.90 	 0.90
+    2	 -1.40 	 1.30
+    3	 -1.80 	 1.70
+    4	 -2.10 	 1.90
+    5	 -2.40 	 2.20
+    6	 -2.70 	 2.40
+    7	 -2.90 	 2.50
+    8	 -3.10 	 2.70
+    9	 -3.40 	 2.80
+    10	 -3.60 	 2.90
+
 
     :param a: 浮点数，代表涨跌幅
     :param fh: 未来期间，根据未来不同的时间来计算涨幅分类
@@ -34,33 +81,51 @@ def categorize(a, fh=5, freq="d"):
     '''
     scale = 1
     num = 0
+    # 5分钟涨跌幅分类
+    d_setting = {
+        1: (-0.9, 0.9),
+        2: (-1.4, 1.3),
+        3: (-1.8, 1.7),
+        4: (-2.1, 1.9),
+        5: (-2.4, 2.2),
+        6: (-2.7, 2.4),
+        7: (-2.9, 2.5),
+        8: (-3.1, 2.7),
+        9: (-3.4, 2.8),
+        10: (-3.6, 2.9)
+    }
+    me_setting = {
+        1: (-5, 5),
+        2: (-10, 10),
+        3: (-15, 15),
+        4: (-20, 20),
+        5: (-25, 25),
+        6: (-30, 30),
+        7: (-35, 35),
+        8: (-40, 40),
+        9: (-45, 45),
+        10: (-50, 50)
+    }
     # 如果是15分钟，一天是4个小时，一小时是4个15分钟，一天是16个15分钟
     if freq == "m":
-        scale = fh / 5 * 16
+        scale = fh / (5 * 16)
     elif freq == "d":
-        scale = fh // 5
+        min = d_setting[fh][0]
+        max = d_setting[fh][1]
+    elif freq == "y":
+        scale = fh * 10
+    elif freq == "me":
+        min = me_setting[fh][0]
+        max = me_setting[fh][1]
     else:
         raise Exception("无法识别的频率freq,必须为'm'或者‘d'")
 
-    if a < -5.0 * scale:
+    if a < min:
         num = 0
-    elif -5.0 * scale <= a < -2.0 * scale:
+    elif min <= a < max:
         num = 1
-    elif -2.0 * scale <= a < -1.0 * scale:
+    elif a >= max:
         num = 2
-    elif -1.0 * scale <= a < 0.0 * scale:
-        num = 3
-    elif abs(a) < 1e-9:
-        num = 4
-    elif 0.0 < a <= 1.0 * scale:
-        num = 5
-    elif 1.0 * scale < a <= 2.0 * scale:
-        num = 6
-    elif 2.0 * scale < a <= 5.0 * scale:
-        num = 7
-    elif a > 5.0 * scale:
-        num = 8
-
     return num
 
 
@@ -138,7 +203,7 @@ def get_data_length(data_length, step_length, fh):
     return train_length, valid_length
 
 
-def save_stock_to_db(conn, df_stock_basic):
+def save_stock_to_db(conn, df_stock_basic,table_name):
     '''
     此函数暂时不用，
     此函数是将合并指数后，计算完指标后的股票数据临时保存到数据库中，不用每次都计算一次股票指标
@@ -152,7 +217,7 @@ def save_stock_to_db(conn, df_stock_basic):
         # if ts_code == "001379.SZ":
         #     start = True
         if start:
-            df = get_one_stock_data_from_sqlite(conn, ts_code, start_date, end_date)
+            df = get_one_stock_data_from_sqlite(conn, ts_code, start_date, end_date,table_name)
             if len(df) < 20:
                 continue
             # 股票按照交易日降序排列
@@ -164,7 +229,7 @@ def save_stock_to_db(conn, df_stock_basic):
             df.to_sql("stock_daily", conn, if_exists="append", index=False)
 
 
-def compute_data_y(df, df_index, fh, freq):
+def compute_data_y(df, df_index, fh, freq, clean):
     '''
     计算股票指标
     如果是日线则合并指数信息
@@ -175,13 +240,22 @@ def compute_data_y(df, df_index, fh, freq):
     :param freq:日线d,分钟线m
     :return:处理后的数据
     '''
-    df = indicatior(df)
-    if freq == "d":
+    if (freq == "d") or (freq == "me"):
+        df = df.sort_values(by="trade_date", ascending=True, ignore_index=True)
         df["trade_date"] = df["trade_date"].astype(int)
-        df = df.merge(df_index, how="left", suffixes=["_stock", "_index"], on="trade_date")
-        df = df.drop(labels=["ts_code", "trade_date", "ts_code_sh_index", "ts_code_sz_index"], axis=1)
+        if clean:
+            df = df.drop(labels=["ts_code", "trade_date"], axis=1)
+        else:
+            df = indicatior(df)
+            df = df.merge(df_index, how="left", suffixes=["_stock", "_index"], on="trade_date")
+            df = df.drop(labels=["ts_code", "trade_date", "ts_code_sh_index", "ts_code_sz_index"], axis=1)
     elif freq == "m":
-        df = df.drop(labels=["ts_code", "trade_date", "trade_time", "adj"], axis=1)
+        df = df.sort_values(by=["trade_date", "trade_time"], ascending=True, ignore_index=True)
+        if clean:
+            df = df.drop(labels=["ts_code", "trade_date", "trade_time", "adj"], axis=1)
+        else:
+            df = indicatior(df)
+            df = df.drop(labels=["ts_code", "trade_date", "trade_time", "adj"], axis=1)
     # 计算未来fh天的收盘价
     df["next_n_close"] = df["close"].shift(-fh)
     # 删除最后的fh天的信息，因为无法取得未来fh天的收盘价
@@ -232,16 +306,18 @@ def transform_data(df, window_length, get_x, get_y, horizon=1, stride=1, start=0
     return dls, X_train, y_train, X_valid, y_valid
 
 
-def split_data(df, step_length):
+def split_data(df, step_length, get_x=None):
     '''
     将股票数据分类为训练数据和测试数据
     :param df: 处理过之后的股票信息
     :param step_length: 过去的长度
     :return:
     '''
-    columns = df.columns.tolist()
-    # X：所有数据都是X,包括股票的信息和指数的信息
-    get_x = columns[:-1]
+    if get_x is None:
+        columns = df.columns.tolist()
+        # X：所有数据都是X,包括股票的信息和指数的信息
+        get_x = columns[:-1]
+
     # y的值:columns的索引：使用股票的pct_chg
     get_y = "target"
     _, X_train, y_train, X_valid, y_valid = transform_data(df, step_length, get_x, get_y, horizon=1,
@@ -277,7 +353,7 @@ class StockPytorchDatasetNew(Dataset):
     '''
 
     def __init__(self, conn, start_date, end_date, one_hot=False, train=True, keras_data=False, step_length=100, fh=15,
-                 freq="d"):
+                 freq="d", clean=False, table="stock_all"):
         '''
 
         :param conn: 数据库连接
@@ -286,7 +362,9 @@ class StockPytorchDatasetNew(Dataset):
         :param keras_data: 是否转化为keras形式的数据，即n_samples,n_steps,n_vars
         :param step_length: 过去多少时间
         :param fh: 需要预测的未来多少时间
-        :param freq: 频率，d:代表是日线数据，m:代表是分钟数据
+        :param freq: 频率，d:代表是日线数据，m:代表是分钟数据me代表月度数据
+        :param clean: if ture 不包含index和指标数据，else 包含index和指标数据
+        :param table: 数据库表名
         '''
         self.conn = conn
         self.start_date = start_date
@@ -297,10 +375,13 @@ class StockPytorchDatasetNew(Dataset):
         self.step_length = step_length
         self.fh = fh
         self.freq = freq
+        self.table = table
+        self.clean = clean
+        self.title = "clean" if clean else "all"
         # 获取指数数据
-        self.df_index = pd.read_sql("select * from df_index;", conn)
+        self.df_index = None if clean else pd.read_sql("select * from df_index;", conn)
         # 获取股票基本信息
-        self.df_stock_basic = pd.read_sql("select * from stock_basic;", conn)
+        self.df_stock_basic = None if clean else pd.read_sql("select * from stock_basic;", conn)
 
     def get_length(self):
         '''
@@ -322,23 +403,25 @@ class StockPytorchDatasetNew(Dataset):
         # 总的测试数据长度
         total_test_data_length = 0
 
-        df_ts_codes = pd.read_sql("select ts_code from stock_all", self.conn)
+        df_ts_codes = pd.read_sql("select ts_code from {}".format(self.table), self.conn)
 
         for key, ts_code in enumerate(np.unique(df_ts_codes["ts_code"])):
             # 遍历所有的股票代码
             print(ts_code)
             # 获取股票日线或者分钟线数据
-            df = get_one_stock_data_from_sqlite(self.conn, ts_code, self.start_date, self.end_date)
+            df = get_one_stock_data_from_sqlite(self.conn, ts_code, self.start_date, self.end_date, self.table)
             # 如果在开始时间和截止时间内，该股票的数据小于历史回顾和未来预测期数据，那么该股票将没有可测试的数据，因此不测试该股票
             if len(df) < self.step_length + self.fh + 1:
                 continue
             # 计算股票指标并合并指数
-            df_data = compute_data_y(df, self.df_index, self.fh, self.freq)
+            df_data = compute_data_y(df, self.df_index, self.fh, self.freq, self.clean)
+            print(df_data.shape)
             # 生成训练和测试数据集
             X_train, y_train, X_valid, y_valid = split_data(df_data, self.step_length)
             # 如果生成的数据为None
             if y_train is None:
                 continue
+            print(X_train.shape, y_train.shape, X_valid.shape, y_valid.shape)
             ts_codes.append(ts_code)
             train_data_lengths.append(len(y_train))
             test_data_lengths.append(len(y_valid))
@@ -354,7 +437,8 @@ class StockPytorchDatasetNew(Dataset):
                                   "total_test_data_length": total_test_data_lengths,
                                   })
         print(df_record)
-        df_record.to_sql("step_length_{}_fh_{}".format(self.step_length, self.fh), self.conn, index=False,
+        df_record.to_sql("step_length_{}_fh_{}_{}".format(self.step_length, self.fh, self.title), self.conn,
+                         index=False,
                          if_exists="replace")
 
     def get_records(self):
@@ -363,13 +447,16 @@ class StockPytorchDatasetNew(Dataset):
         :return:
         '''
         try:
-            df = pd.read_sql("select * from step_length_{}_fh_{}".format(self.step_length, self.fh), self.conn)
+            df = pd.read_sql("select * from step_length_{}_fh_{}_{}".format(self.step_length, self.fh, self.title),
+                             self.conn)
             if len(df) < 2:
                 self.get_length()
-                df = pd.read_sql("select * from step_length_{}_fh_{}".format(self.step_length, self.fh), self.conn)
+                df = pd.read_sql("select * from step_length_{}_fh_{}_{}".format(self.step_length, self.fh, self.title),
+                                 self.conn)
         except pd.errors.DatabaseError:
             self.get_length()
-            df = pd.read_sql("select * from step_length_{}_fh_{}".format(self.step_length, self.fh), self.conn)
+            df = pd.read_sql("select * from step_length_{}_fh_{}_{}".format(self.step_length, self.fh, self.title),
+                             self.conn)
         return df
 
     def __len__(self):
@@ -387,6 +474,7 @@ class StockPytorchDatasetNew(Dataset):
     def get_data(self, idx, total_data_length_cl):
         '''
         根据idx从数据集中获取数据
+        根据idx从数据集中获取数据
         :param idx:
         :param total_data_length_cl:
         :param train:
@@ -402,8 +490,8 @@ class StockPytorchDatasetNew(Dataset):
             data_pos = idx - self.df_records[total_data_length_cl].iloc[pos_start - 1]
         # 获取股票信息
         ts_code = self.df_records["ts_code"].iloc[pos_start]
-        df = get_one_stock_data_from_sqlite(self.conn, ts_code, self.start_date, self.end_date)
-        df_data = compute_data_y(df, self.df_index, self.fh, self.freq)
+        df = get_one_stock_data_from_sqlite(self.conn, ts_code, self.start_date, self.end_date, self.table)
+        df_data = compute_data_y(df, self.df_index, self.fh, self.freq, self.clean)
         X_train, y_train, X_valid, y_valid = split_data(df_data, self.step_length)
         # 获取股票对应位置的数据
         if self.train:
@@ -417,7 +505,7 @@ class StockPytorchDatasetNew(Dataset):
             x = x.transpose((1, 0))
         if self.one_hot:
             y = y.reshape(-1, 1)
-            onehot_encoder = OneHotEncoder(categories=[[0, 1, 2, 3, 4, 5, 6, 7, 8]], sparse_output=False)
+            onehot_encoder = OneHotEncoder(categories=[CATEGORIES], sparse_output=False)
             y = onehot_encoder.fit_transform(y)
             y = np.squeeze(y)
         return torch.tensor(x, dtype=torch.float32), torch.tensor(y, dtype=torch.long)
@@ -445,7 +533,7 @@ def delete_table(conn, tablename):
         print(e)
 
 
-def new_fit(settings):
+def new_fit(settings, load_model=False, batch_size=64, dataset=StockPytorchDatasetNew):
     '''
     根据配置信息进行训练
     :param settings: 配置信息
@@ -454,7 +542,9 @@ def new_fit(settings):
     import keras
     from torch.utils.data import DataLoader
     from sktime.classification.deep_learning.inceptiontime import InceptionTimeClassifier
+    from sktime.classification.deep_learning.lstmfcn import LSTMFCNClassifier
     db = settings["db"]
+    table = settings["table"]
     conn = sqlite3.connect(db, check_same_thread=False)
     start_date = settings["start_date"]
     end_date = settings["end_date"]
@@ -462,23 +552,42 @@ def new_fit(settings):
     fh = settings["fh"]
     freq = settings["freq"]
     n_vars = settings["n_vars"]
+    depth = settings["depth"]
+    clean = settings["clean"]
+    if clean:
+        title = "clean"
+    else:
+        title = "all"
+    if settings["model"] == "lstmfcn":
+        network = LSTMFCNClassifier(verbose=True, n_epochs=100,batch_size=batch_size)
+        model_save_path = r"D:\redhand\clean\data\state_dict\lstmfcn_{}_{}_{}_{}.keras".format(title, freq,
+                                                                                                       step_length, fh)
+    elif settings["model"] == "inceptiontime":
+        # 从sktime创建inceptiontime模型
+        network = InceptionTimeClassifier(verbose=True, depth=depth)
+        model_save_path = r"D:\redhand\clean\data\state_dict\inceptiontime_{}_{}_{}_{}.keras".format(title, freq,
+                                                                                                     step_length, fh)
+    else:
+        return None
     # 创建pytorch 数据集，y onehot为True
 
-    train_data = StockPytorchDatasetNew(conn, start_date, end_date, True, True, True, step_length, fh, freq)
-    train_dataloader = DataLoader(train_data, batch_size=64, shuffle=False)
-    test_data = StockPytorchDatasetNew(conn, start_date, end_date, True, False, True, step_length, fh, freq)
-    test_dataloader = DataLoader(test_data, batch_size=64, shuffle=False)
-    # 从sktime创建inceptiontime模型
-    network = InceptionTimeClassifier(verbose=True, depth=9)
+    train_data = dataset(conn, start_date, end_date, True, True, True, step_length, fh, freq, clean, table)
+    train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=False)
+    test_data = dataset(conn, start_date, end_date, True, False, True, step_length, fh, freq, clean, table)
+    test_dataloader = DataLoader(test_data, batch_size=batch_size, shuffle=False)
+
+
     # 模型初始化，
-    model_ = network.build_model((step_length, n_vars), 9)
-    model_save_path = r"D:\redhand\clean\data\state_dict\inceptiontime_{}_{}_{}.keras".format(freq, step_length, fh)
+    model_ = network.build_model((step_length, n_vars), len(CATEGORIES))
     # 模型参数初始化
+    print(model_save_path)
     # model_save_path = r"/clean/data/state_dict/inceptiontime_new_150_15_bak.keras"
-    # model_ = keras.saving.load_model(model_save_path)
+    if load_model:
+        model_ = keras.saving.load_model(model_save_path)
     # 开始训练
     csv_logger = keras.callbacks.CSVLogger(
-        r"D:\redhand\clean\data\log\inceptiontime_log_{}_{}_{}.csv".format(freq, step_length, fh), separator=",",
+        r"D:\redhand\clean\data\log\inceptiontime_log_{}_{}_{}_{}.csv".format(title, freq, step_length, fh),
+        separator=",",
         append=True)
     batch_print_callback = keras.callbacks.LambdaCallback(
         on_train_batch_end=lambda batch, logs: print("batch:{};logs:{}".format(batch, logs)))
@@ -507,6 +616,58 @@ def new_fit(settings):
 
 
 if __name__ == '__main__':
+    settings_month_12_1 = {
+        "start_date": "20000101",
+        "end_date": "20231231",
+        "db": r"D:\stock\stock.db",
+        "table": "stock_monthly",
+        "step_length": 12,
+        "fh": 1,
+        "freq": "me",  # d代表day,m代表minute,me代表month
+        "n_vars": 7,  # 96/9
+        "depth": 6,  # 6/9
+        "clean": True,
+        "model":"lstmfcn",#lstmfcn,inceptiontime
+    }
+    settings_month_15_1 = {
+        "start_date": "20000101",
+        "end_date": "20231231",
+        "db": r"D:\stock\stock.db",
+        "table": "stock_monthly",
+        "step_length": 15,
+        "fh": 1,
+        "freq": "me",  # d代表day,m代表minute,me代表month
+        "n_vars": 7,  # 96/9
+        "depth": 6,  # 6/9
+        "clean": True,
+        "model": "lstmfcn",  # lstmfcn,inceptiontime
+    }
+    settings_day_20_3 = {
+        "start_date": "20000101",
+        "end_date": "20231231",
+        "db": r"D:\redhand\clean\data\tushare_db\tushare.db",
+        "table": "stock_all",
+        "step_length": 20,
+        "fh": 3,
+        "freq": "d",  # d代表day,m代表minute
+        "n_vars": 9,  # 96/9
+        "depth": 9,  # 6/9
+        "clean": True,
+        "model": "lstmfcn",  # lstmfcn,inceptiontime
+    }
+    settings_day_30_3 = {
+        "start_date": "20000101",
+        "end_date": "20231231",
+        "db": r"D:\redhand\clean\data\tushare_db\tushare.db",
+        "table": "stock_all",
+        "step_length": 30,
+        "fh": 3,
+        "freq": "d",  # d代表day,m代表minute
+        "n_vars": 9,  # 96/9
+        "depth": 9,  # 6/9
+        "clean": True,
+        "model": "inceptiontime",  # lstmfcn,inceptiontime
+    }
     settings_day_100_15 = {
         "start_date": "20000101",
         "end_date": "20231231",
@@ -515,7 +676,10 @@ if __name__ == '__main__':
         "step_length": 100,
         "fh": 15,
         "freq": "d",  # d代表day,m代表minute
-        "n_vars": 96,
+        "n_vars": 9,  # 96/9
+        "depth": 9,  # 6/9
+        "clean": True,
+        "model": "lstmfcn",  # lstmfcn,inceptiontime
     }
     settings_day_150_15 = {
         "start_date": "20000101",
@@ -525,7 +689,10 @@ if __name__ == '__main__':
         "step_length": 150,
         "fh": 15,
         "freq": "d",  # d代表day,m代表minute
-        "n_vars": 96,
+        "n_vars": 9,  # 96/9
+        "depth": 9,  # 6/9
+        "clean": True,
+        "model": "lstmfcn",  # lstmfcn,inceptiontime
     }
     settings_day_200_20 = {
         "start_date": "20000101",
@@ -535,7 +702,10 @@ if __name__ == '__main__':
         "step_length": 200,
         "fh": 20,
         "freq": "d",  # d代表day,m代表minute
-        "n_vars": 96,
+        "n_vars": 9,  # 96/9
+        "depth": 9,  # 6/9
+        "clean": True,
+        "model": "lstmfcn",  # lstmfcn,inceptiontime
     }
     settings_minute_320_80 = {
         "start_date": "20040101",
@@ -546,26 +716,35 @@ if __name__ == '__main__':
         "fh": 80,  # 16*5
         "freq": "m",  # d代表day,m代表minute
         "n_vars": 67,
+        "depth": 9,  # 6/9
+        "clean": True,
+        "model": "lstmfcn",  # lstmfcn,inceptiontime
     }
-    new_fit(settings_day_200_20)
+    # new_fit(settings_day_20_3,True)
+    new_fit(settings_month_12_1,True)
+    # conn = sqlite3.connect(r"D:\redhand\clean\data\tushare_db\tushare.db", check_same_thread=False)
+    # get_stock_all_distribution(conn)
     # # save_stock_to_db()
     # from torch.utils.data import DataLoader
     #
     # conn_sqlite = sqlite3.connect(r"D:\redhand\clean\data\tushare_db\tushare.db")
     # df_index = pd.read_sql("select * from df_index;", conn_sqlite)
-    # # delete_table(conn_sqlite, "step_length_100_fh_15")
-    # train_data = StockPytorchDatasetNew(True, True, True, 150, 15)
+    # delete_table(conn_sqlite, "step_length_320_fh_80")
+    # conn, start_date, end_date, one_hot=False, train=True, keras_data=False, step_length=100, fh=15,
+    #                  freq="d"
+    # train_data = StockPytorchDatasetNew(conn_sqlite,"20040101","20231231",True, True, True, 100, 10,"d",True)
     # train_dataloader = DataLoader(train_data, batch_size=64, shuffle=False)
-    # test_data = StockPytorchDatasetNew( True, False, True, 150, 15)
+    # test_data = StockPytorchDatasetNew(conn_sqlite,"20040101","20231231",True, False, True, 320, 80,"m")
     # test_dataloader = DataLoader(test_data, batch_size=64, shuffle=False)
-    # df = get_one_stock_data_from_sqlite("000001.SZ", start_date, end_date, False)
-    # df_data = compute_data_y(df, 15, df_index)
-    # X_train, y_train, X_valid, y_valid = split_data(df_data, 150)
+    # df = get_one_stock_data_from_sqlite(conn_sqlite,"000001.SZ","20040101","20231231")
+    # df_data = compute_data_y(df,df_index, 80,"m")
+    # X_train, y_train, X_valid, y_valid = split_data(df_data, 320)
     # X_train = X_train.transpose((0, 2, 1))
-
+    #
     # for key, (x_train, y_train) in enumerate(train_dataloader):
     #     test = X_train[64*key:64*(key+1)]
     #     print(key)
+    #     print(x_train.shape)
     #     print("------------------------------------")
     #     if x_train == test:
     #         print("good")

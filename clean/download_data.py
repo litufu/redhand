@@ -375,13 +375,14 @@ if __name__ == '__main__':
     # generate_record_from_dir(r"D:\redhand\clean\data\stocks",r"D:\redhand\clean\data\stock_record.csv")
     # d1 = np.load(r"D:\redhand\clean\data\stocks\x_train_000001.SZ.npy")
     # d2 = np.load(r"D:\redhand\clean\data\stocks\y_train_000001.SZ.npy")
-    d3 = np.load(r"D:\redhand\clean\data\stocks\y_valid_000001.SZ.npy")
+    # d3 = np.load(r"D:\redhand\clean\data\stocks\y_valid_000001.SZ.npy")
     # 使用 NumPy 的 unique 函数统计元素出现次数
-    unique_elements, counts = np.unique(d3, return_counts=True)
+    # unique_elements, counts = np.unique(d3, return_counts=True)
     # 将结果组合成字典
-    numpy_result = dict(zip(unique_elements, counts))
-    print("本次统计数据：{}".format(numpy_result))
+    # numpy_result = dict(zip(unique_elements, counts))
+    # print("本次统计数据：{}".format(numpy_result))
 
+    df = ts.pro_bar(ts_code="000001.SZ", factors=['tor', ])
     # d4 = np.load(r"D:\redhand\clean\data\stocks\x_valid_000001.SZ.npy")
     # print(d1.shape)
     # print(d2.shape)
